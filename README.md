@@ -86,7 +86,7 @@ The project uses a decoupled, microservice-based architecture for global scalabi
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/Kunal-Pramanik/IllumiRefine-AI.git
+git clone https://github.com/AmanChauhan7010/IllumiRefine-AI.git
 cd IllumiRefine-AI
 ```
 
@@ -158,8 +158,8 @@ The UI will automatically open at `http://localhost:3000`.
 ## 🤝 Contributors & Acknowledgments
 
 **Developers**
-- Kunal Pramanik — M.Sc. Data Science, Dhirubhai Ambani University
 - Chauhan Aman Satpal — M.Sc. Data Science, Dhirubhai Ambani University
+- Kunal Pramanik — M.Sc. Data Science, Dhirubhai Ambani University
 
 **Academic Guide**
 - Dr. Srimanta Mandal — Associate Professor, Dhirubhai Ambani University
