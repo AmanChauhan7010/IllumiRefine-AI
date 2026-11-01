@@ -4,3 +4,7 @@ __pycache__/
 dist/
 build/
 *.pyc
+.DS_Store
+*/.DS_Store
+venv/
+.venv/

@@ -20,22 +20,29 @@ app.add_middleware(
 # Note: Ensure the weights folder exists with the .pt file!
 sci = SCIFilter(weights_path='weights/difficult.pt')
 
+@app.get("/")
+def read_root():
+    return {
+        "status": "online",
+        "message": "IllumiRefine SCI API is running!",
+        "docs_url": "/docs",
+        "enhance_url": "/enhance"
+    }
+
 @app.post("/enhance")
 async def enhance_image(file: UploadFile = File(...)):
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        return Response(content="Invalid image format", status_code=400)
 
-    temp_input = "temp_sci_input.png"
-    cv2.imwrite(temp_input, img)
-    
-    # Process with AI
-    enhanced_img = sci.enhance(temp_input)
+    # Process with AI directly in memory
+    enhanced_img = sci.enhance(img)
+    if enhanced_img is None:
+        return Response(content="Enhancement failed", status_code=500)
     
     _, encoded_img = cv2.imencode('.png', enhanced_img)
-    if os.path.exists(temp_input):
-        os.remove(temp_input)
-        
     return Response(content=encoded_img.tobytes(), media_type="image/png")
 
 if __name__ == "__main__":

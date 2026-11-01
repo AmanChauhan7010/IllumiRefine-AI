@@ -44,8 +44,11 @@ class SCIFilter:
         except Exception as e:
             print(f"CRITICAL ERROR: {e}")
 
-    def enhance(self, image_path):
-        img = cv2.imread(image_path)
+    def enhance(self, image_input):
+        if isinstance(image_input, str):
+            img = cv2.imread(image_input)
+        else:
+            img = image_input
         if img is None: return None
         
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
