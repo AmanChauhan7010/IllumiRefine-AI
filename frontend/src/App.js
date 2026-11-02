@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Upload,
@@ -16,11 +16,14 @@ import {
   Layers,
   Trash2,
   SlidersHorizontal,
-  Info
+  Info,
+  Cloud,
+  Server
 } from 'lucide-react';
 
-// API URL: points to local FastAPI backend by default or environment variable
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/enhance";
+// API Endpoints: Local development server & 24/7 Cloud Hugging Face Space
+const LOCAL_API_URL = "http://localhost:8000/enhance";
+const CLOUD_API_URL = "https://pramanikkunal65-low-light-enhancer.hf.space/enhance";
 
 export default function App() {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -33,6 +36,30 @@ export default function App() {
   const [dragActive, setDragActive] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [activeTab, setActiveTab] = useState('studio'); // 'studio' | 'pipeline' | 'about'
+  
+  // Dual-Engine Backend State: 'local' | 'cloud'
+  const [backendMode, setBackendMode] = useState('cloud');
+
+  // Auto-detect whether local backend is active; fall back to 24/7 Cloud backend
+  useEffect(() => {
+    let isMounted = true;
+    const probeLocalBackend = async () => {
+      try {
+        const res = await axios.get("http://localhost:8000/", { timeout: 1500 });
+        if (isMounted && res.data?.status === "online") {
+          setBackendMode('local');
+          return;
+        }
+      } catch (err) {
+        // Local backend not running - default to 24/7 Cloud Space
+      }
+      if (isMounted) {
+        setBackendMode('cloud');
+      }
+    };
+    probeLocalBackend();
+    return () => { isMounted = false; };
+  }, []);
 
   // Handle file select
   const handleFileChange = (e) => {
@@ -103,7 +130,7 @@ export default function App() {
     setErrorMsg(null);
   };
 
-  // Run AI enhancement API
+  // Run AI enhancement API with automatic 24/7 Cloud Fallback
   const processImage = async () => {
     if (!selectedFile) return;
     setLoading(true);
@@ -113,31 +140,44 @@ export default function App() {
     const formData = new FormData();
     formData.append('file', selectedFile);
 
+    const primaryUrl = backendMode === 'local' ? LOCAL_API_URL : CLOUD_API_URL;
+    const fallbackUrl = backendMode === 'local' ? CLOUD_API_URL : LOCAL_API_URL;
+
+    let response = null;
+
     try {
-      const response = await axios.post(API_URL, formData, {
+      // First attempt with primary backend
+      response = await axios.post(primaryUrl, formData, {
         responseType: 'blob',
-        timeout: 60000,
+        timeout: 45000,
       });
-
-      const endTime = performance.now();
-      setProcessingTime(((endTime - startTime) / 1000).toFixed(2));
-
-      // Read response as persistent Data URL (never gets revoked or expired)
-      const reader = new FileReader();
-      reader.onload = () => {
-        setResult(reader.result);
-      };
-      reader.readAsDataURL(response.data);
-    } catch (err) {
-      console.error("Enhancement failed:", err);
-      setErrorMsg(
-        "Could not connect to backend at " +
-        API_URL +
-        ". Make sure 'python main.py' is running in your terminal."
-      );
-    } finally {
-      setLoading(false);
+    } catch (primaryErr) {
+      console.warn(`Primary backend (${primaryUrl}) unavailable, falling back to ${fallbackUrl}...`, primaryErr);
+      try {
+        // Automatic fallback attempt
+        response = await axios.post(fallbackUrl, formData, {
+          responseType: 'blob',
+          timeout: 45000,
+        });
+        setBackendMode(backendMode === 'local' ? 'cloud' : 'local');
+      } catch (fallbackErr) {
+        console.error("Both local and cloud backends failed:", fallbackErr);
+        setErrorMsg("Unable to connect to AI processing servers. Please check your internet connection.");
+        setLoading(false);
+        return;
+      }
     }
+
+    const endTime = performance.now();
+    setProcessingTime(((endTime - startTime) / 1000).toFixed(2));
+
+    // Read response as persistent Data URL (never gets revoked or expired)
+    const reader = new FileReader();
+    reader.onload = () => {
+      setResult(reader.result);
+    };
+    reader.readAsDataURL(response.data);
+    setLoading(false);
   };
 
   return (
@@ -213,8 +253,41 @@ export default function App() {
             </button>
           </nav>
 
-          {/* Creator & Links */}
+          {/* Creator & Links & Live Backend Engine */}
           <div className="flex items-center gap-2.5">
+            {/* Live Dual-Engine Indicator & Switcher */}
+            <button
+              onClick={() => setBackendMode(prev => prev === 'local' ? 'cloud' : 'local')}
+              title={`Currently using ${backendMode === 'local' ? 'Local Server (port 8000)' : '24/7 Cloud Hugging Face Space'}. Click to toggle.`}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                backendMode === 'local'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200/90 hover:bg-emerald-100/70'
+                  : 'bg-sky-50 text-sky-800 border-sky-200/90 hover:bg-sky-100/70'
+              }`}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  backendMode === 'local' ? 'bg-emerald-400' : 'bg-sky-400'
+                }`}></span>
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                  backendMode === 'local' ? 'bg-emerald-500' : 'bg-sky-500'
+                }`}></span>
+              </span>
+              {backendMode === 'local' ? (
+                <span className="flex items-center gap-1">
+                  <Server size={13} className="text-emerald-600" />
+                  <span className="hidden sm:inline">Local Engine</span>
+                  <span className="sm:hidden">Local</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <Cloud size={13} className="text-sky-600" />
+                  <span className="hidden sm:inline">Cloud AI (24/7)</span>
+                  <span className="sm:hidden">Cloud</span>
+                </span>
+              )}
+            </button>
+
             <a
               href="https://www.linkedin.com/in/aman-chauhan2001/"
               target="_blank"
